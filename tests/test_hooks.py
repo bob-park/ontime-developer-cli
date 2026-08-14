@@ -178,7 +178,7 @@ def test_install_and_uninstall(tmp_path, monkeypatch):
     assert result.exit_code == 0
     hook = hook_path(tmp_path)
     assert hook.exists()
-    assert hooks.MARKER in hook.read_text()
+    assert hook.read_text() == hooks.HOOK_SCRIPT
     assert hook.stat().st_mode & 0o111  # 실행 권한
     # 우리 훅은 재설치(업데이트) 허용
     assert runner.invoke(hooks_app, ["install"]).exit_code == 0
