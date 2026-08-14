@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 import secrets
 import time
 from pathlib import Path
@@ -38,7 +39,10 @@ def load_config() -> dict:
         raise AuthError(
             f"설정 파일이 없습니다: {CONFIG_FILE}\n아래 내용으로 작성하세요:\n{CONFIG_EXAMPLE}"
         )
-    config = json.loads(CONFIG_FILE.read_text())
+    try:
+        config = json.loads(CONFIG_FILE.read_text())
+    except ValueError as e:
+        raise AuthError(f"설정 파일이 올바른 JSON 형식이 아닙니다: {CONFIG_FILE}") from e
     for key in ("client_id", "client_secret", "scope"):
         if not config.get(key):
             raise AuthError(f"설정 파일에 '{key}' 값이 없습니다: {CONFIG_FILE}")
@@ -63,14 +67,23 @@ def save_tokens(token_response: dict) -> None:
         "refresh_token": token_response.get("refresh_token", ""),
         "expires_at": int(time.time()) + int(token_response.get("expires_in", 300)) - 30,
     }
-    TOKENS_FILE.write_text(json.dumps(data))
-    TOKENS_FILE.chmod(0o600)
+    fd = os.open(TOKENS_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump(data, f)
 
 
 def load_tokens() -> Optional[dict]:
     if not TOKENS_FILE.exists():
         return None
-    return json.loads(TOKENS_FILE.read_text())
+    try:
+        tokens = json.loads(TOKENS_FILE.read_text())
+    except ValueError:
+        return None
+    if not isinstance(tokens, dict) or not all(
+        k in tokens for k in ("access_token", "refresh_token", "expires_at")
+    ):
+        return None
+    return tokens
 
 
 # --- OAuth flow ---------------------------------------------------------
@@ -82,9 +95,8 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import httpx
 
 
-def _await_callback(state: str) -> str:
-    """localhost:8765 에서 authorization code 콜백을 기다린다."""
-    result: dict = {}
+def _bind_server(result: dict) -> HTTPServer:
+    """localhost:8765 에 콜백 수신 서버를 바인딩한다 (브라우저를 열기 전에 호출)."""
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -108,12 +120,14 @@ def _await_callback(state: str) -> str:
         server = HTTPServer(("localhost", CALLBACK_PORT), Handler)
     except OSError as e:
         raise AuthError(f"콜백 포트 {CALLBACK_PORT} 를 열 수 없습니다: {e}") from e
-
     server.timeout = 1
+    return server
+
+
+def _await_callback(server: HTTPServer, result: dict, state: str) -> str:
+    """이미 바인딩된 서버에서 authorization code 콜백을 기다린다."""
     deadline = time.time() + CALLBACK_TIMEOUT
     with server:
-        # 서버가 리스닝 중인 상태에서 브라우저를 연다 (호출측에서 open 후 진입해도
-        # HTTPServer 는 생성 시점부터 listen 하므로 레이스 없음)
         while not result and time.time() < deadline:
             server.handle_request()
 
@@ -123,6 +137,8 @@ def _await_callback(state: str) -> str:
         raise AuthError(f"인증 실패: {result['error']}")
     if result.get("state") != state:
         raise AuthError("state 값이 일치하지 않습니다. 다시 시도하세요.")
+    if "code" not in result:
+        raise AuthError("콜백에 code 가 없습니다. 다시 시도하세요.")
     return result["code"]
 
 
@@ -141,10 +157,12 @@ def login() -> None:
             "code_challenge_method": "S256",
         }
     )
+    result: dict = {}
+    server = _bind_server(result)
     print("브라우저에서 로그인을 진행하세요. 열리지 않으면 아래 URL을 직접 여세요:")
     print(url)
     webbrowser.open(url)
-    code = _await_callback(state)
+    code = _await_callback(server, result, state)
     resp = httpx.post(
         TOKEN_URL,
         data={

@@ -57,6 +57,23 @@ def test_load_config_missing_key(tmp_path, monkeypatch):
         auth.load_config()
 
 
+def test_load_config_malformed_json(tmp_path, monkeypatch):
+    cfg = tmp_path / "config.json"
+    cfg.write_text('{"client_id": ')
+    monkeypatch.setattr(auth, "CONFIG_FILE", cfg)
+    with pytest.raises(auth.AuthError):
+        auth.load_config()
+
+
+def test_load_tokens_malformed_json(tmp_path, monkeypatch):
+    tok = tmp_path / "tokens.json"
+    tok.write_text("not json")
+    monkeypatch.setattr(auth, "TOKENS_FILE", tok)
+    assert auth.load_tokens() is None
+    tok.write_text('{"access_token": "a"}')
+    assert auth.load_tokens() is None
+
+
 def test_load_config_ok(tmp_path, monkeypatch):
     cfg = tmp_path / "config.json"
     cfg.write_text(
