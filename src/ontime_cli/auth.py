@@ -71,3 +71,129 @@ def load_tokens() -> Optional[dict]:
     if not TOKENS_FILE.exists():
         return None
     return json.loads(TOKENS_FILE.read_text())
+
+
+# --- OAuth flow ---------------------------------------------------------
+
+import webbrowser
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import parse_qs, urlencode, urlparse
+
+import httpx
+
+
+def _await_callback(state: str) -> str:
+    """localhost:8765 에서 authorization code 콜백을 기다린다."""
+    result: dict = {}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            parsed = urlparse(self.path)
+            if parsed.path != "/callback":
+                self.send_response(404)
+                self.end_headers()
+                return
+            result.update({k: v[0] for k, v in parse_qs(parsed.query).items()})
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(
+                "<h2>로그인 완료. 이 창을 닫고 터미널로 돌아가세요.</h2>".encode()
+            )
+
+        def log_message(self, *args):
+            pass
+
+    try:
+        server = HTTPServer(("localhost", CALLBACK_PORT), Handler)
+    except OSError as e:
+        raise AuthError(f"콜백 포트 {CALLBACK_PORT} 를 열 수 없습니다: {e}") from e
+
+    server.timeout = 1
+    deadline = time.time() + CALLBACK_TIMEOUT
+    with server:
+        # 서버가 리스닝 중인 상태에서 브라우저를 연다 (호출측에서 open 후 진입해도
+        # HTTPServer 는 생성 시점부터 listen 하므로 레이스 없음)
+        while not result and time.time() < deadline:
+            server.handle_request()
+
+    if not result:
+        raise AuthError(f"로그인 콜백 대기 시간({CALLBACK_TIMEOUT}초)을 초과했습니다.")
+    if "error" in result:
+        raise AuthError(f"인증 실패: {result['error']}")
+    if result.get("state") != state:
+        raise AuthError("state 값이 일치하지 않습니다. 다시 시도하세요.")
+    return result["code"]
+
+
+def login() -> None:
+    config = load_config()
+    verifier, challenge = generate_pkce()
+    state = secrets.token_urlsafe(16)
+    url = AUTH_URL + "?" + urlencode(
+        {
+            "response_type": "code",
+            "client_id": config["client_id"],
+            "redirect_uri": REDIRECT_URI,
+            "scope": " ".join(config["scope"]),
+            "state": state,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+        }
+    )
+    print("브라우저에서 로그인을 진행하세요. 열리지 않으면 아래 URL을 직접 여세요:")
+    print(url)
+    webbrowser.open(url)
+    code = _await_callback(state)
+    resp = httpx.post(
+        TOKEN_URL,
+        data={
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": REDIRECT_URI,
+            "code_verifier": verifier,
+        },
+        auth=(config["client_id"], config["client_secret"]),
+    )
+    if resp.status_code != 200:
+        raise AuthError(f"토큰 교환 실패 ({resp.status_code}): {resp.text}")
+    save_tokens(resp.json())
+
+
+def logout() -> None:
+    tokens = load_tokens()
+    if tokens is None:
+        raise AuthError("로그인 상태가 아닙니다.")
+    try:
+        config = load_config()
+        httpx.post(
+            REVOKE_URL,
+            data={"token": tokens["refresh_token"], "token_type_hint": "refresh_token"},
+            auth=(config["client_id"], config["client_secret"]),
+        )
+    except (AuthError, httpx.HTTPError):
+        pass  # revoke 는 best-effort, 로컬 토큰 삭제가 본질
+    TOKENS_FILE.unlink()
+
+
+def refresh_tokens(config: dict, tokens: dict) -> dict:
+    resp = httpx.post(
+        TOKEN_URL,
+        data={"grant_type": "refresh_token", "refresh_token": tokens["refresh_token"]},
+        auth=(config["client_id"], config["client_secret"]),
+    )
+    if resp.status_code != 200:
+        raise AuthError("토큰 갱신에 실패했습니다. 다시 `ontime login` 하세요.")
+    data = resp.json()
+    data.setdefault("refresh_token", tokens["refresh_token"])
+    save_tokens(data)
+    return load_tokens()
+
+
+def get_access_token() -> str:
+    tokens = load_tokens()
+    if tokens is None:
+        raise AuthError("로그인이 필요합니다: `ontime login` 을 먼저 실행하세요.")
+    if is_expired(tokens):
+        tokens = refresh_tokens(load_config(), tokens)
+    return tokens["access_token"]
