@@ -19,10 +19,11 @@ runner = CliRunner()
 
 
 def test_repo_from_url():
-    assert repo_from_url("git@github.com:bob-park/ontime-api.git") == "ontime-api"
-    assert repo_from_url("https://github.com/bob-park/ontime-api.git") == "ontime-api"
-    assert repo_from_url("https://github.com/bob-park/ontime-api") == "ontime-api"
-    assert repo_from_url("git@github.com:ontime-api.git") == "ontime-api"
+    assert repo_from_url("git@github.com:bob-park/ontime-api.git") == "bob-park/ontime-api"
+    assert repo_from_url("https://github.com/bob-park/ontime-api.git") == "bob-park/ontime-api"
+    assert repo_from_url("https://github.com/bob-park/ontime-api") == "bob-park/ontime-api"
+    assert repo_from_url("ssh://git@github.com:22/bob-park/ontime-api.git") == "bob-park/ontime-api"
+    assert repo_from_url("git@github.com:ontime-api.git") == "ontime-api"  # org 없는 경우
 
 
 def test_parse_push_lines_normal():
@@ -111,7 +112,7 @@ def test_pre_push_registers_commits(tmp_path, monkeypatch):
     assert fake.calls == [
         ("POST", "/v1/developers/commits", {
             "commitId": second,
-            "repo": "demo",
+            "repo": "bob-park/demo",
             "branch": "main",
             "author": "bob",
             "commitMessage": "fix: second",

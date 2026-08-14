@@ -14,8 +14,8 @@ push 할 때 원격에 새로 올라가는 커밋들을 자동으로 `POST /v1/d
 - husky 는 Node/npm 프로젝트에서만 동작하므로 사용하지 않는다. 순수 git 훅을 CLI 가 설치한다.
   (husky 를 이미 쓰는 repo 는 `.husky/pre-push` 에 `ontime hooks pre-push "$@"` 한 줄로 연동 가능)
 - 등록 실패(서버 다운, 미로그인 등)는 경고만 출력하고 **push 는 항상 진행**한다.
-- `--repo` 값은 push 대상 remote URL 의 마지막 경로에서 추출한다
-  (`git@github.com:bob-park/ontime-api.git` → `ontime-api`).
+- `--repo` 값은 push 대상 remote URL 에서 org/repo 형태로 추출한다
+  (`git@github.com:bob-park/ontime-api.git` → `bob-park/ontime-api`).
 - `--author` 값은 각 커밋의 git author 이름(`%an`)을 사용한다.
 
 ## 구조

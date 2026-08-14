@@ -19,12 +19,15 @@ exit 0
 
 
 def repo_from_url(url: str) -> str:
-    name = url.rstrip("/").split("/")[-1]
-    if ":" in name:  # scp 형식 git@host:repo.git
-        name = name.split(":")[-1]
-    if name.endswith(".git"):
-        name = name[: -len(".git")]
-    return name
+    """remote URL 에서 org/repo 형태의 이름을 추출한다."""
+    path = url.rstrip("/")
+    if "://" in path:  # https://host/org/repo, ssh://git@host:port/org/repo
+        path = path.split("://", 1)[1].split("/", 1)[-1]
+    elif ":" in path:  # scp 형식 git@host:org/repo.git
+        path = path.split(":", 1)[1]
+    if path.endswith(".git"):
+        path = path[: -len(".git")]
+    return "/".join(path.split("/")[-2:])
 
 
 def parse_push_lines(lines: list) -> list:
