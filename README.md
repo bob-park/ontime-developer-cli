@@ -64,7 +64,7 @@ ontime logout    # 토큰 삭제 (서버 revoke 포함)
 ```bash
 ontime commits register \
   --commit-id a1b2c3d \
-  --repo ontime-api \
+  --repo bob-park/ontime-api \
   --branch main \
   --author bob \
   --message "fix: resolve login bug"
@@ -79,7 +79,7 @@ ontime commits register \
 ontime commits list
 
 # 필터링
-ontime commits list --repo ontime-api --branch main --author bob
+ontime commits list --repo bob-park/ontime-api --branch main --author bob
 ontime commits list --message "fix"                        # 커밋 메시지 부분 일치
 ontime commits list --from 2026-08-01T00:00:00 --to 2026-08-14T23:59:59
 
@@ -93,9 +93,9 @@ ontime commits list --json
 기본 출력은 테이블 형태이고, 하단에 `page 1/3 (total 62)` 형식으로 페이징 정보가 표시된다.
 
 ```
-id                   commit    repo        branch  author  message                  createdDate
--------------------  --------  ----------  ------  ------  -----------------------  -------------------
-1954732911911405568  a1b2c3d4  ontime-api  main    bob     fix: resolve login bug   2026-08-14T10:00:00
+id                   commit    repo                 branch  author  message                  createdDate
+-------------------  --------  -------------------  ------  ------  -----------------------  -------------------
+1954732911911405568  a1b2c3d4  bob-park/ontime-api  main    bob     fix: resolve login bug   2026-08-14T10:00:00
 page 1/1 (total 1)
 ```
 
