@@ -69,9 +69,14 @@ def pre_push(remote: str = typer.Argument(...), url: str = typer.Argument(...)) 
         return
     ok = failed = 0
     for branch, local_sha, remote_sha in parse_push_lines(sys.stdin.read().splitlines()):
-        for sha in commits_to_push(local_sha, remote_sha, remote):
-            author, subject = commit_info(sha)
+        try:
+            shas = commits_to_push(local_sha, remote_sha, remote)
+        except Exception as e:
+            typer.echo(f"[ontime] {branch} 커밋 목록 조회 실패: {e}", err=True)
+            continue
+        for sha in shas:
             try:
+                author, subject = commit_info(sha)
                 client.request(
                     "POST",
                     "/v1/developers/commits",
@@ -87,7 +92,8 @@ def pre_push(remote: str = typer.Argument(...), url: str = typer.Argument(...)) 
             except Exception as e:
                 typer.echo(f"[ontime] {sha[:8]} 등록 실패: {e}", err=True)
                 failed += 1
-    message = f"[ontime] {ok}개 커밋 등록 완료"
-    if failed:
-        message += f" ({failed}개 실패)"
-    typer.echo(message)
+    if ok or failed:
+        message = f"[ontime] {ok}개 커밋 등록 완료"
+        if failed:
+            message += f" ({failed}개 실패)"
+        typer.echo(message)

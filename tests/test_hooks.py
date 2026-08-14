@@ -130,6 +130,20 @@ def test_pre_push_survives_client_init_failure(tmp_path, monkeypatch):
         hooks_app, ["pre-push", "origin", "https://github.com/bob-park/demo.git"], input=stdin
     )
     assert result.exit_code == 0
+    assert "건너뜀" in result.output
+
+
+def test_pre_push_survives_git_failure(tmp_path, monkeypatch):
+    make_repo(tmp_path, monkeypatch)
+    fake = FakeClient()
+    monkeypatch.setattr(hooks, "ApiClient", lambda: fake)
+    stdin = f"refs/heads/main {'a' * 40} refs/heads/main {'0' * 40}\n"
+    result = runner.invoke(
+        hooks_app, ["pre-push", "origin", "https://github.com/bob-park/demo.git"], input=stdin
+    )
+    assert result.exit_code == 0
+    assert "[ontime]" in result.output
+    assert fake.calls == []
 
 
 def test_pre_push_partial_failure(tmp_path, monkeypatch):
