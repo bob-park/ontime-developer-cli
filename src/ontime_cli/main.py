@@ -8,10 +8,12 @@ import typer
 from . import auth
 from .api import ApiError
 from .commits import commits_app
+from .hooks import hooks_app
 
 app = typer.Typer(help="OnTime Developer CLI", no_args_is_help=True)
 
 app.add_typer(commits_app, name="commits")
+app.add_typer(hooks_app, name="hooks")
 
 
 @app.command()

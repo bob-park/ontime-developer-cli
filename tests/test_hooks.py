@@ -166,3 +166,43 @@ def test_pre_push_partial_failure(tmp_path, monkeypatch):
     assert len(fake.calls) == 2  # 실패해도 나머지 계속 진행
     assert "1개 커밋 등록 완료" in result.output
     assert "1개 실패" in result.output
+
+
+def hook_path(tmp_path):
+    return tmp_path / ".git" / "hooks" / "pre-push"
+
+
+def test_install_and_uninstall(tmp_path, monkeypatch):
+    make_repo(tmp_path, monkeypatch)
+    result = runner.invoke(hooks_app, ["install"])
+    assert result.exit_code == 0
+    hook = hook_path(tmp_path)
+    assert hook.exists()
+    assert hooks.MARKER in hook.read_text()
+    assert hook.stat().st_mode & 0o111  # 실행 권한
+    # 우리 훅은 재설치(업데이트) 허용
+    assert runner.invoke(hooks_app, ["install"]).exit_code == 0
+    assert runner.invoke(hooks_app, ["uninstall"]).exit_code == 0
+    assert not hook.exists()
+
+
+def test_install_refuses_foreign_hook(tmp_path, monkeypatch):
+    make_repo(tmp_path, monkeypatch)
+    hook = hook_path(tmp_path)
+    hook.write_text("#!/bin/sh\necho other hook\n")
+    assert runner.invoke(hooks_app, ["install"]).exit_code == 1
+    assert "other hook" in hook.read_text()  # 보존됨
+    assert runner.invoke(hooks_app, ["install", "--force"]).exit_code == 0
+    assert hooks.MARKER in hook.read_text()
+
+
+def test_install_outside_git_repo(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    assert runner.invoke(hooks_app, ["install"]).exit_code == 1
+
+
+def test_uninstall_when_not_installed(tmp_path, monkeypatch):
+    make_repo(tmp_path, monkeypatch)
+    result = runner.invoke(hooks_app, ["uninstall"])
+    assert result.exit_code == 0
+    assert "없습니다" in result.output

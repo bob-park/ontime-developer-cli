@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from pathlib import Path
 
 import typer
 
@@ -9,10 +10,12 @@ from .api import ApiClient, ApiError
 
 hooks_app = typer.Typer(help="git hooks 관리", no_args_is_help=True)
 
-
-@hooks_app.callback()
-def _hooks() -> None:
-    """커맨드가 하나뿐일 때 typer 가 서브커맨드를 없애버리는 것을 막는다."""
+MARKER = "# ontime-developer-cli pre-push hook"
+HOOK_SCRIPT = f"""#!/bin/sh
+{MARKER}
+ontime hooks pre-push "$@" || echo "[ontime] 커밋 등록 실패 (push는 계속 진행)" >&2
+exit 0
+"""
 
 
 def repo_from_url(url: str) -> str:
@@ -97,3 +100,42 @@ def pre_push(remote: str = typer.Argument(...), url: str = typer.Argument(...)) 
         if failed:
             message += f" ({failed}개 실패)"
         typer.echo(message)
+
+
+def _hook_path() -> Path:
+    out = subprocess.run(
+        ["git", "rev-parse", "--git-path", "hooks/pre-push"],
+        capture_output=True, text=True,
+    )
+    if out.returncode != 0:
+        typer.echo("git 저장소가 아닙니다.", err=True)
+        raise typer.Exit(1)
+    return Path(out.stdout.strip())
+
+
+@hooks_app.command()
+def install(
+    force: bool = typer.Option(False, "--force", help="기존 pre-push 훅 덮어쓰기"),
+) -> None:
+    """현재 repo 에 pre-push 커밋 자동 등록 훅을 설치한다."""
+    hook = _hook_path()
+    if hook.exists() and MARKER not in hook.read_text() and not force:
+        typer.echo(
+            "다른 pre-push 훅이 이미 있습니다. --force 로 덮어쓸 수 있습니다.", err=True
+        )
+        raise typer.Exit(1)
+    hook.parent.mkdir(parents=True, exist_ok=True)
+    hook.write_text(HOOK_SCRIPT)
+    hook.chmod(0o755)
+    typer.echo(f"pre-push 훅 설치 완료: {hook}")
+
+
+@hooks_app.command()
+def uninstall() -> None:
+    """설치된 ontime pre-push 훅을 삭제한다."""
+    hook = _hook_path()
+    if not hook.exists() or MARKER not in hook.read_text():
+        typer.echo("설치된 ontime pre-push 훅이 없습니다.")
+        return
+    hook.unlink()
+    typer.echo("pre-push 훅 삭제 완료.")
