@@ -1,10 +1,18 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 
 import typer
 
+from .api import ApiClient, ApiError
+
 hooks_app = typer.Typer(help="git hooks 관리", no_args_is_help=True)
+
+
+@hooks_app.callback()
+def _hooks() -> None:
+    """커맨드가 하나뿐일 때 typer 가 서브커맨드를 없애버리는 것을 막는다."""
 
 
 def repo_from_url(url: str) -> str:
@@ -48,3 +56,38 @@ def commits_to_push(local_sha: str, remote_sha: str, remote: str) -> list:
 def commit_info(sha: str) -> tuple:
     author, subject = _git("log", "-1", "--format=%an%x00%s", sha).rstrip("\n").split("\x00", 1)
     return author, subject
+
+
+@hooks_app.command("pre-push", hidden=True)
+def pre_push(remote: str = typer.Argument(...), url: str = typer.Argument(...)) -> None:
+    """(내부용) git pre-push 훅 진입점. stdin 으로 push ref 줄들을 받는다."""
+    repo = repo_from_url(url)
+    try:
+        client = ApiClient()
+    except Exception as e:
+        typer.echo(f"[ontime] 커밋 등록 건너뜀: {e}", err=True)
+        return
+    ok = failed = 0
+    for branch, local_sha, remote_sha in parse_push_lines(sys.stdin.read().splitlines()):
+        for sha in commits_to_push(local_sha, remote_sha, remote):
+            author, subject = commit_info(sha)
+            try:
+                client.request(
+                    "POST",
+                    "/v1/developers/commits",
+                    json={
+                        "commitId": sha,
+                        "repo": repo,
+                        "branch": branch,
+                        "author": author,
+                        "commitMessage": subject,
+                    },
+                )
+                ok += 1
+            except Exception as e:
+                typer.echo(f"[ontime] {sha[:8]} 등록 실패: {e}", err=True)
+                failed += 1
+    message = f"[ontime] {ok}개 커밋 등록 완료"
+    if failed:
+        message += f" ({failed}개 실패)"
+    typer.echo(message)

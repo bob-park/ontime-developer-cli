@@ -2,9 +2,20 @@ from __future__ import annotations
 
 import subprocess
 
-from ontime_cli.hooks import commit_info, commits_to_push, parse_push_lines, repo_from_url
+from typer.testing import CliRunner
+
+import ontime_cli.hooks as hooks
+from ontime_cli.hooks import (
+    commit_info,
+    commits_to_push,
+    hooks_app,
+    parse_push_lines,
+    repo_from_url,
+)
 
 ZERO = "0" * 40
+
+runner = CliRunner()
 
 
 def test_repo_from_url():
@@ -77,3 +88,67 @@ def test_commit_info(tmp_path, monkeypatch):
     first, second = make_repo(tmp_path, monkeypatch)
     assert commit_info(first) == ("bob", "first commit")
     assert commit_info(second) == ("bob", "fix: second")  # 제목 줄만
+
+
+class FakeClient:
+    def __init__(self):
+        self.calls = []
+
+    def request(self, method, path, **kwargs):
+        self.calls.append((method, path, kwargs.get("json")))
+        return {}
+
+
+def test_pre_push_registers_commits(tmp_path, monkeypatch):
+    first, second = make_repo(tmp_path, monkeypatch)
+    fake = FakeClient()
+    monkeypatch.setattr(hooks, "ApiClient", lambda: fake)
+    stdin = f"refs/heads/main {second} refs/heads/main {first}\n"
+    result = runner.invoke(
+        hooks_app, ["pre-push", "origin", "git@github.com:bob-park/demo.git"], input=stdin
+    )
+    assert result.exit_code == 0
+    assert fake.calls == [
+        ("POST", "/v1/developers/commits", {
+            "commitId": second,
+            "repo": "demo",
+            "branch": "main",
+            "author": "bob",
+            "commitMessage": "fix: second",
+        })
+    ]
+    assert "1개 커밋 등록 완료" in result.output
+
+
+def test_pre_push_survives_client_init_failure(tmp_path, monkeypatch):
+    first, second = make_repo(tmp_path, monkeypatch)
+    def boom():
+        raise RuntimeError("로그인이 필요합니다")
+    monkeypatch.setattr(hooks, "ApiClient", boom)
+    stdin = f"refs/heads/main {second} refs/heads/main {first}\n"
+    result = runner.invoke(
+        hooks_app, ["pre-push", "origin", "https://github.com/bob-park/demo.git"], input=stdin
+    )
+    assert result.exit_code == 0
+
+
+def test_pre_push_partial_failure(tmp_path, monkeypatch):
+    first, second = make_repo(tmp_path, monkeypatch)
+
+    class FailingClient(FakeClient):
+        def request(self, method, path, **kwargs):
+            super().request(method, path, **kwargs)
+            if kwargs["json"]["commitId"] == second:
+                raise hooks.ApiError("DUPLICATE: 이미 등록됨")
+            return {}
+
+    fake = FailingClient()
+    monkeypatch.setattr(hooks, "ApiClient", lambda: fake)
+    stdin = f"refs/heads/main {second} refs/heads/main {'0' * 40}\n"
+    result = runner.invoke(
+        hooks_app, ["pre-push", "origin", "https://github.com/bob-park/demo.git"], input=stdin
+    )
+    assert result.exit_code == 0
+    assert len(fake.calls) == 2  # 실패해도 나머지 계속 진행
+    assert "1개 커밋 등록 완료" in result.output
+    assert "1개 실패" in result.output
