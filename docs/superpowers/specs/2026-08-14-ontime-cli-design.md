@@ -76,12 +76,13 @@ ontime commits list [--repo ..] [--branch ..] [--author ..] [--message ..]
 {
   "client_id": "...",
   "client_secret": "...",
-  "scope": "openid profile users:read:summary",
+  "scope": ["openid", "profile", "users:read:summary"],
   "api_base_url": "http://localhost:8080/api"
 }
 ```
 
 - `client_id`, `client_secret`, `scope`는 필수, `api_base_url`은 선택
+- `scope`는 string array이며, authorize 요청 시 공백으로 join하여 전달
 - 파일이 없으면 위 예시와 경로를 출력하고 exit 1
 - client secret은 git에 커밋하지 않는다 (코드/문서에 실제 값 미포함)
 
