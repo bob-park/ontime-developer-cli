@@ -21,10 +21,10 @@ KeyFlow Auth(OAuth 2.0) 로그인과 OnTime Developer REST API(커밋 등록/조
 
 ```bash
 # git 저장소에서 바로 설치
-uv tool install git+https://github.com/<org>/ontime-developer-cli.git
+uv tool install git+https://github.com/bob-park/ontime-developer-cli.git
 
 # 또는 로컬 체크아웃에서
-git clone https://github.com/<org>/ontime-developer-cli.git
+git clone https://github.com/bob-park/ontime-developer-cli.git
 cd ontime-developer-cli
 uv tool install .
 ```
