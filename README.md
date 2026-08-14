@@ -99,6 +99,22 @@ id                   commit    repo        branch  author  message              
 page 1/1 (total 1)
 ```
 
+### git 훅 (push 시 커밋 자동 등록)
+
+git repo 에서 한 번만 실행하면, 이후 `git push` 할 때 원격에 새로 올라가는
+커밋들이 자동으로 등록된다.
+
+```bash
+cd <아무-git-저장소>
+ontime hooks install     # .git/hooks/pre-push 설치
+ontime hooks uninstall   # 제거
+```
+
+- repo 이름은 push 대상 remote URL 에서, author 는 각 커밋의 git author 에서 자동 추출된다.
+- 등록에 실패해도 (서버 다운, 미로그인 등) 경고만 출력하고 push 는 정상 진행된다.
+- 기존 pre-push 훅이 있으면 설치를 중단한다 (`--force` 로 덮어쓰기).
+- husky 를 쓰는 repo 라면 `.husky/pre-push` 에 `ontime hooks pre-push "$@"` 한 줄을 추가하면 된다.
+
 ### 도움말
 
 ```bash
