@@ -15,7 +15,7 @@ def format_problem(resp: httpx.Response) -> str:
     try:
         body = resp.json()
         return f"{body['code']}: {body['detail']}"
-    except (ValueError, KeyError):
+    except (ValueError, KeyError, TypeError):
         return f"HTTP {resp.status_code}: {resp.text[:200]}"
 
 
@@ -37,7 +37,12 @@ class ApiClient:
             resp = self._send(method, path, **kwargs)
         if resp.status_code >= 400:
             raise ApiError(format_problem(resp))
-        return resp.json()
+        if not resp.content:
+            return {}
+        try:
+            return resp.json()
+        except ValueError:
+            raise ApiError(f"HTTP {resp.status_code}: 응답이 JSON 형식이 아닙니다")
 
     def _send(self, method: str, path: str, **kwargs) -> httpx.Response:
         return httpx.request(
