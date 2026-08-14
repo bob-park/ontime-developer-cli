@@ -6,6 +6,7 @@ import httpx
 import typer
 
 from . import auth
+from .api import ApiError
 
 app = typer.Typer(help="OnTime Developer CLI", no_args_is_help=True)
 
@@ -37,7 +38,7 @@ def whoami() -> None:
 def run() -> None:
     try:
         app()
-    except auth.AuthError as e:
+    except (auth.AuthError, ApiError) as e:
         typer.echo(str(e), err=True)
         raise SystemExit(1)
     except httpx.HTTPError as e:
