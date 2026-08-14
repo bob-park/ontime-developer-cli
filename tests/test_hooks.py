@@ -25,6 +25,11 @@ def test_parse_push_lines_skips_delete_and_junk():
     assert parse_push_lines(lines) == []
 
 
+def test_parse_push_lines_skips_non_branch_refs():
+    lines = ["refs/tags/v1.0 aaa111 refs/tags/v1.0 bbb222"]
+    assert parse_push_lines(lines) == []
+
+
 def test_parse_push_lines_new_branch():
     lines = [f"refs/heads/feat aaa111 refs/heads/feat {ZERO}"]
     assert parse_push_lines(lines) == [("feat", "aaa111", ZERO)]

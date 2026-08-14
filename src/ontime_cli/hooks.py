@@ -23,6 +23,8 @@ def parse_push_lines(lines: list) -> list:
         local_ref, local_sha, _remote_ref, remote_sha = parts
         if set(local_sha) == {"0"}:  # 브랜치 삭제 push
             continue
-        branch = local_ref[len("refs/heads/"):] if local_ref.startswith("refs/heads/") else local_ref
+        if not local_ref.startswith("refs/heads/"):  # 태그 등 브랜치가 아닌 ref 제외
+            continue
+        branch = local_ref[len("refs/heads/"):]
         result.append((branch, local_sha, remote_sha))
     return result
