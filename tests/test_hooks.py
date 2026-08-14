@@ -39,6 +39,7 @@ def test_parse_push_lines_new_branch():
 
 def make_repo(tmp_path, monkeypatch):
     """임시 git repo를 만들고 커밋 2개의 sha를 (첫번째, 두번째) 로 반환."""
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(tmp_path / "no-global-gitconfig"))
     monkeypatch.chdir(tmp_path)
     subprocess.run(["git", "init", "-q"], check=True)
     subprocess.run(["git", "config", "user.email", "bob@test.com"], check=True)
@@ -48,7 +49,9 @@ def make_repo(tmp_path, monkeypatch):
         (tmp_path / "f.txt").write_text(str(i))
         subprocess.run(["git", "add", "."], check=True)
         subprocess.run(["git", "commit", "-qm", msg], check=True)
-        out = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True)
+        out = subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+        )
         shas.append(out.stdout.strip())
     return shas
 
@@ -62,6 +65,12 @@ def test_commits_to_push_new_branch(tmp_path, monkeypatch):
     first, second = make_repo(tmp_path, monkeypatch)
     # 원격에 아무 ref도 없으면 전체 커밋이 대상 (최신순)
     assert commits_to_push(second, "0" * 40, "origin") == [second, first]
+
+
+def test_commits_to_push_new_branch_excludes_remote_commits(tmp_path, monkeypatch):
+    first, second = make_repo(tmp_path, monkeypatch)
+    subprocess.run(["git", "update-ref", "refs/remotes/origin/main", first], check=True)
+    assert commits_to_push(second, "0" * 40, "origin") == [second]
 
 
 def test_commit_info(tmp_path, monkeypatch):
