@@ -215,3 +215,19 @@ def get_access_token() -> str:
     if is_expired(tokens):
         tokens = refresh_tokens(load_config(), tokens)
     return tokens["access_token"]
+
+
+_user_unique_id = None
+
+
+def get_user_unique_id():
+    """userinfo 의 sub 를 userUniqueId 로 반환한다 (프로세스당 1회 조회 후 캐시)."""
+    global _user_unique_id
+    if _user_unique_id is None:
+        token = get_access_token()
+        resp = httpx.get(USERINFO_URL, headers={"Authorization": f"Bearer {token}"})
+        if resp.status_code != 200:
+            raise AuthError(f"userinfo 조회 실패 ({resp.status_code}): {resp.text}")
+        sub = str(resp.json()["sub"])
+        _user_unique_id = int(sub) if sub.isdigit() else sub  # API 스펙상 int64
+    return _user_unique_id

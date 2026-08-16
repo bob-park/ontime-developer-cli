@@ -74,6 +74,41 @@ def test_load_tokens_malformed_json(tmp_path, monkeypatch):
     assert auth.load_tokens() is None
 
 
+def _patch_userinfo(monkeypatch, sub, calls):
+    import httpx
+
+    monkeypatch.setattr(auth, "get_access_token", lambda: "tok")
+    monkeypatch.setattr(auth, "_user_unique_id", None)
+
+    def fake_get(url, **kwargs):
+        calls.append(url)
+        return httpx.Response(
+            200, json={"sub": sub}, request=httpx.Request("GET", url)
+        )
+
+    monkeypatch.setattr(auth.httpx, "get", fake_get)
+
+
+def test_get_user_unique_id_numeric_sub(monkeypatch):
+    calls = []
+    _patch_userinfo(monkeypatch, "12345", calls)
+    assert auth.get_user_unique_id() == 12345
+
+
+def test_get_user_unique_id_non_numeric_sub(monkeypatch):
+    calls = []
+    _patch_userinfo(monkeypatch, "abc-uuid", calls)
+    assert auth.get_user_unique_id() == "abc-uuid"
+
+
+def test_get_user_unique_id_cached(monkeypatch):
+    calls = []
+    _patch_userinfo(monkeypatch, "12345", calls)
+    auth.get_user_unique_id()
+    auth.get_user_unique_id()
+    assert len(calls) == 1  # userinfo 는 프로세스당 1회만 호출
+
+
 def test_load_config_ok(tmp_path, monkeypatch):
     cfg = tmp_path / "config.json"
     cfg.write_text(

@@ -5,6 +5,7 @@ from typing import Optional
 
 import typer
 
+from . import auth
 from .api import ApiClient
 
 commits_app = typer.Typer(help="커밋 API", no_args_is_help=True)
@@ -62,6 +63,7 @@ def register(
             "repo": repo,
             "branch": branch,
             "author": author,
+            "userUniqueId": auth.get_user_unique_id(),
             "commitMessage": message,
         },
     )
@@ -73,13 +75,13 @@ def list_(
     repo: Optional[str] = typer.Option(None, "--repo", help="저장소 이름"),
     branch: Optional[str] = typer.Option(None, "--branch", help="브랜치 이름"),
     author: Optional[str] = typer.Option(None, "--author", help="커밋 작성자"),
+    user_unique_id: Optional[int] = typer.Option(None, "--user-unique-id", help="사용자 고유 아이디"),
     message: Optional[str] = typer.Option(None, "--message", help="커밋 메시지 (부분 일치)"),
-    created_from: Optional[str] = typer.Option(None, "--from", help="등록일 시작 (ISO datetime)"),
-    created_to: Optional[str] = typer.Option(None, "--to", help="등록일 종료 (ISO datetime)"),
-    created_by: Optional[str] = typer.Option(None, "--created-by", help="등록자"),
+    commit_from: Optional[str] = typer.Option(None, "--from", help="커밋 일시 시작 (ISO datetime)"),
+    commit_to: Optional[str] = typer.Option(None, "--to", help="커밋 일시 종료 (ISO datetime)"),
     page: int = typer.Option(0, "--page", help="페이지 번호 (zero-based)"),
     size: int = typer.Option(25, "--size", help="페이지당 항목 수"),
-    sort: str = typer.Option("createdDate,desc", "--sort", help="정렬 ({field},{asc|desc})"),
+    sort: str = typer.Option("commitDate,desc", "--sort", help="정렬 ({field},{asc|desc})"),
     as_json: bool = typer.Option(False, "--json", help="raw JSON 출력"),
 ) -> None:
     """커밋 목록을 조회한다."""
@@ -87,10 +89,10 @@ def list_(
         "repo": repo,
         "branch": branch,
         "author": author,
+        "userUniqueId": user_unique_id,
         "commitMessage": message,
-        "createdDateFrom": created_from,
-        "createdDateTo": created_to,
-        "createdBy": created_by,
+        "commitDateFrom": commit_from,
+        "commitDateTo": commit_to,
         "page": page,
         "size": size,
         "sort": sort,
