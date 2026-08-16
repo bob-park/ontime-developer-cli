@@ -6,9 +6,12 @@ from pathlib import Path
 
 import typer
 
+from . import auth
 from .api import ApiClient, ApiError
 
-hooks_app = typer.Typer(help="git hooks 관리", no_args_is_help=True)
+hooks_app = typer.Typer(help="git hooks 관리 (deprecated)", no_args_is_help=True)
+
+DEPRECATION_WARNING = "[deprecated] git hooks 기능은 더 이상 유지되지 않으며 향후 제거될 예정입니다."
 
 MARKER = "# ontime-developer-cli pre-push hook"
 HOOK_SCRIPT = f"""#!/bin/sh
@@ -70,6 +73,7 @@ def pre_push(remote: str = typer.Argument(...), url: str = typer.Argument(...)) 
     repo = repo_from_url(url)
     try:
         client = ApiClient()
+        user_unique_id = auth.get_user_unique_id()
     except Exception as e:
         typer.echo(f"[ontime] 커밋 등록 건너뜀: {e}", err=True)
         return
@@ -91,6 +95,7 @@ def pre_push(remote: str = typer.Argument(...), url: str = typer.Argument(...)) 
                         "repo": repo,
                         "branch": branch,
                         "author": author,
+                        "userUniqueId": user_unique_id,
                         "commitMessage": subject,
                     },
                 )
@@ -116,11 +121,12 @@ def _hook_path() -> Path:
     return Path(out.stdout.strip())
 
 
-@hooks_app.command()
+@hooks_app.command(deprecated=True)
 def install(
     force: bool = typer.Option(False, "--force", help="기존 pre-push 훅 덮어쓰기"),
 ) -> None:
-    """현재 repo 에 pre-push 커밋 자동 등록 훅을 설치한다."""
+    """(deprecated) 현재 repo 에 pre-push 커밋 자동 등록 훅을 설치한다."""
+    typer.echo(DEPRECATION_WARNING, err=True)
     hook = _hook_path()
     if hook.exists() and MARKER not in hook.read_text() and not force:
         typer.echo(
@@ -133,9 +139,10 @@ def install(
     typer.echo(f"pre-push 훅 설치 완료: {hook}")
 
 
-@hooks_app.command()
+@hooks_app.command(deprecated=True)
 def uninstall() -> None:
-    """설치된 ontime pre-push 훅을 삭제한다."""
+    """(deprecated) 설치된 ontime pre-push 훅을 삭제한다."""
+    typer.echo(DEPRECATION_WARNING, err=True)
     hook = _hook_path()
     if not hook.exists() or MARKER not in hook.read_text():
         typer.echo("설치된 ontime pre-push 훅이 없습니다.")

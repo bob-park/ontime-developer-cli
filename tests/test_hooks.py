@@ -104,6 +104,7 @@ def test_pre_push_registers_commits(tmp_path, monkeypatch):
     first, second = make_repo(tmp_path, monkeypatch)
     fake = FakeClient()
     monkeypatch.setattr(hooks, "ApiClient", lambda: fake)
+    monkeypatch.setattr(hooks.auth, "get_user_unique_id", lambda: 42)
     stdin = f"refs/heads/main {second} refs/heads/main {first}\n"
     result = runner.invoke(
         hooks_app, ["pre-push", "origin", "git@github.com:bob-park/demo.git"], input=stdin
@@ -115,10 +116,43 @@ def test_pre_push_registers_commits(tmp_path, monkeypatch):
             "repo": "bob-park/demo",
             "branch": "main",
             "author": "bob",
+            "userUniqueId": 42,
             "commitMessage": "fix: second",
         })
     ]
     assert "1개 커밋 등록 완료" in result.output
+
+
+def test_pre_push_skips_when_userinfo_fails(tmp_path, monkeypatch):
+    first, second = make_repo(tmp_path, monkeypatch)
+    fake = FakeClient()
+    monkeypatch.setattr(hooks, "ApiClient", lambda: fake)
+
+    def boom():
+        raise RuntimeError("userinfo 조회 실패")
+
+    monkeypatch.setattr(hooks.auth, "get_user_unique_id", boom)
+    stdin = f"refs/heads/main {second} refs/heads/main {first}\n"
+    result = runner.invoke(
+        hooks_app, ["pre-push", "origin", "git@github.com:bob-park/demo.git"], input=stdin
+    )
+    assert result.exit_code == 0  # push 는 계속 진행
+    assert "건너뜀" in result.output
+    assert fake.calls == []
+
+
+def test_install_warns_deprecated(tmp_path, monkeypatch):
+    make_repo(tmp_path, monkeypatch)
+    result = runner.invoke(hooks_app, ["install"])
+    assert result.exit_code == 0
+    assert "deprecated" in result.output.lower()
+
+
+def test_uninstall_warns_deprecated(tmp_path, monkeypatch):
+    make_repo(tmp_path, monkeypatch)
+    result = runner.invoke(hooks_app, ["uninstall"])
+    assert result.exit_code == 0
+    assert "deprecated" in result.output.lower()
 
 
 def test_pre_push_survives_client_init_failure(tmp_path, monkeypatch):
@@ -138,6 +172,7 @@ def test_pre_push_survives_git_failure(tmp_path, monkeypatch):
     make_repo(tmp_path, monkeypatch)
     fake = FakeClient()
     monkeypatch.setattr(hooks, "ApiClient", lambda: fake)
+    monkeypatch.setattr(hooks.auth, "get_user_unique_id", lambda: 42)
     stdin = f"refs/heads/main {'a' * 40} refs/heads/main {'0' * 40}\n"
     result = runner.invoke(
         hooks_app, ["pre-push", "origin", "https://github.com/bob-park/demo.git"], input=stdin
@@ -159,6 +194,7 @@ def test_pre_push_partial_failure(tmp_path, monkeypatch):
 
     fake = FailingClient()
     monkeypatch.setattr(hooks, "ApiClient", lambda: fake)
+    monkeypatch.setattr(hooks.auth, "get_user_unique_id", lambda: 42)
     stdin = f"refs/heads/main {second} refs/heads/main {'0' * 40}\n"
     result = runner.invoke(
         hooks_app, ["pre-push", "origin", "https://github.com/bob-park/demo.git"], input=stdin
