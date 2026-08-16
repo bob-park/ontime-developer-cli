@@ -1,6 +1,6 @@
 # OnTime Developer CLI
 
-KeyFlow Auth(OAuth 2.0) 로그인과 OnTime Developer REST API(커밋 등록/조회)를 제공하는 커맨드라인 도구.
+KeyFlow Auth(OAuth 2.0) 로그인과 OnTime Developer REST API(커밋 등록/조회, 휴가 신청)를 제공하는 커맨드라인 도구.
 
 ## Spec
 
@@ -10,7 +10,10 @@ KeyFlow Auth(OAuth 2.0) 로그인과 OnTime Developer REST API(커밋 등록/조
   - 토큰 저장: `~/.config/keyflow-auth/tokens.json` (권한 `0600`)
 - **API**: OnTime Developer REST API (`/v1/developers/commits`)
   - 기본 서버: `http://localhost:8080/api` (설정으로 변경 가능)
+  - 커밋 등록 시 `userUniqueId` 는 로그인 사용자(userinfo 의 `sub`)로 자동 설정
   - 에러 응답(RFC 9457 ProblemDetail)은 `CODE: 상세 메시지` 형태로 출력, exit code 1
+- **휴가 API**: OnTime Document API (`/v1/documents/vacations`)
+  - 기본 서버: `http://localhost:8082/api` (`document_api_base_url` 설정으로 변경 가능)
 - **런타임**: Python ≥ 3.9, 의존성은 [typer](https://typer.tiangolo.com/) / [httpx](https://www.python-httpx.org/) 2개
 
 상세 설계는 [docs/superpowers/specs/2026-08-14-ontime-cli-design.md](docs/superpowers/specs/2026-08-14-ontime-cli-design.md) 참고.
@@ -40,11 +43,14 @@ uv tool install .
   "client_id": "<KeyFlow client id>",
   "client_secret": "<KeyFlow client secret>",
   "scope": ["openid", "profile", "users:read:summary"],
-  "api_base_url": "http://localhost:8080/api"
+  "api_base_url": "http://localhost:8080/api",
+  "document_api_base_url": "http://localhost:8082/api"
 }
 ```
 
-- `client_id` / `client_secret` / `scope` 는 필수, `api_base_url` 은 선택 (기본값 `http://localhost:8080/api`)
+- `client_id` / `client_secret` / `scope` 는 필수
+- `api_base_url` 은 선택 (기본값 `http://localhost:8080/api`)
+- `document_api_base_url` 은 선택 (기본값 `http://localhost:8082/api`, 휴가 API 서버)
 - 파일이 없으면 CLI 가 예시 내용과 경로를 안내한다
 
 ## 사용법
@@ -71,17 +77,19 @@ ontime commits register \
 ```
 
 성공하면 등록된 커밋 정보가 JSON 으로 출력된다.
+`userUniqueId` 는 로그인한 사용자의 `sub` 값으로 자동 설정된다.
 
 ### 커밋 목록 조회
 
 ```bash
-# 전체 조회 (기본: page 0, size 25, createdDate 내림차순)
+# 전체 조회 (기본: page 0, size 25, commitDate 내림차순)
 ontime commits list
 
 # 필터링
 ontime commits list --repo bob-park/ontime-api --branch main --author bob
 ontime commits list --message "fix"                        # 커밋 메시지 부분 일치
-ontime commits list --from 2026-08-01T00:00:00 --to 2026-08-14T23:59:59
+ontime commits list --user-unique-id 42                    # 사용자 고유 아이디
+ontime commits list --from 2026-08-01T00:00:00 --to 2026-08-14T23:59:59   # 커밋 일시 기준
 
 # 페이징 / 정렬
 ontime commits list --page 1 --size 50 --sort author,asc
@@ -99,7 +107,29 @@ id                   commit    repo                 branch  author  message     
 page 1/1 (total 1)
 ```
 
-### git 훅 (push 시 커밋 자동 등록)
+### 휴가 신청
+
+```bash
+# 하루 연차
+ontime vacations request --start 2025-05-07 --reason "개인사유"
+
+# 기간 연차
+ontime vacations request --start 2025-05-07 --end 2025-05-09 --reason "개인사유"
+
+# 오전 반차 / 보상 휴가
+ontime vacations request --start 2025-05-07 --sub-type AM_HALF_DAY_OFF --reason "개인사유"
+ontime vacations request --start 2025-05-07 --type COMPENSATORY --reason "개인사유"
+```
+
+- `--type`: `GENERAL`(연차, 기본값) | `COMPENSATORY`(보상 휴가) | `OFFICIAL`(공가)
+- `--sub-type`: `AM_HALF_DAY_OFF`(오전 반차) | `PM_HALF_DAY_OFF`(오후 반차), 생략 시 하루 단위
+- `--end` 생략 시 시작일과 동일 (하루)
+- 신청자(`userUniqueId`)는 로그인한 사용자의 `sub`, 상태는 `WAITING` 으로 등록된다
+
+### git 훅 (push 시 커밋 자동 등록) — **Deprecated**
+
+> ⚠️ **이 기능은 deprecated 되었으며 향후 제거될 예정이다.** 실행 시 경고가 출력되고
+> 아직 동작은 하지만, 신규 사용은 권장하지 않는다.
 
 git repo 에서 한 번만 실행하면, 이후 `git push` 할 때 원격에 새로 올라가는
 커밋들이 자동으로 등록된다.
