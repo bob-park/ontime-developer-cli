@@ -109,6 +109,46 @@ def test_get_user_unique_id_cached(monkeypatch):
     assert len(calls) == 1  # userinfo 는 프로세스당 1회만 호출
 
 
+def _request_callback(path):
+    import threading
+
+    import httpx
+
+    result = {}
+    server = auth._bind_server(result)
+    thread = threading.Thread(target=server.handle_request)
+    thread.start()
+    try:
+        resp = httpx.get(f"http://localhost:{auth.CALLBACK_PORT}{path}")
+    finally:
+        thread.join()
+        server.server_close()
+    return resp, result
+
+
+def test_callback_success_page():
+    resp, result = _request_callback("/callback?code=abc&state=s")
+    assert result == {"code": "abc", "state": "s"}
+    assert "로그인 완료" in resp.text
+    assert "#1ed760" in resp.text  # 그린 서클 + CTA (다크 카드 디자인)
+    assert "#181818" in resp.text  # 다크 카드 배경
+    assert "창 닫기" in resp.text
+
+
+def test_callback_error_page():
+    resp, result = _request_callback("/callback?error=access_denied")
+    assert result["error"] == "access_denied"
+    assert "로그인 실패" in resp.text
+    assert "access_denied" in resp.text
+    assert "#f3727f" in resp.text  # negative red
+
+
+def test_callback_error_code_escaped():
+    resp, _ = _request_callback("/callback?error=%3Cscript%3E")
+    assert "<script>" not in resp.text
+    assert "&lt;script&gt;" in resp.text
+
+
 def test_load_config_ok(tmp_path, monkeypatch):
     cfg = tmp_path / "config.json"
     cfg.write_text(

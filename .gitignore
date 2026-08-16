@@ -177,3 +177,5 @@ cython_debug/
 #.idea/
 
 .idea/
+# superpowers brainstorm mockups
+.superpowers/

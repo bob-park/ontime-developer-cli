@@ -88,11 +88,52 @@ def load_tokens() -> Optional[dict]:
 
 # --- OAuth flow ---------------------------------------------------------
 
+import html as _html
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx
+
+# OAuth 리다이렉트 페이지 (Spotify 스타일 다크 카드, 외부 리소스 없이 자기완결)
+_PAGE_TEMPLATE = """<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OnTime Developer CLI</title>
+</head>
+<body style="margin:0;background:#121212;font-family:Circular,'Helvetica Neue',Helvetica,Arial,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;">
+  <div style="background:#181818;border-radius:8px;padding:28px 40px;display:flex;flex-direction:column;align-items:center;gap:12px;box-shadow:rgba(0,0,0,0.5) 0px 8px 24px;">
+    <div style="width:44px;height:44px;border-radius:50%;background:{icon_bg};color:#000;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;">{icon}</div>
+    <div style="font-size:20px;font-weight:700;color:#fff;">{title}</div>
+    <div style="font-size:12px;color:#b3b3b3;text-align:center;line-height:1.5;">{desc}</div>
+    <button onclick="window.close()" style="margin-top:6px;{button_style}font-size:11px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;padding:10px 26px;border-radius:9999px;cursor:pointer;">창 닫기</button>
+  </div>
+</body>
+</html>"""
+
+
+def _render_callback_page(error: Optional[str]) -> str:
+    if error:
+        return _PAGE_TEMPLATE.format(
+            icon_bg="#f3727f",
+            icon="✕",
+            title="로그인 실패",
+            desc=(
+                "인증이 완료되지 않았습니다.<br>터미널에서 "
+                f'<span style="color:#f3727f;font-weight:700;">{_html.escape(error)}</span>'
+                " 오류를 확인하고 다시 시도하세요."
+            ),
+            button_style="background:transparent;color:#fff;border:1px solid #7c7c7c;",
+        )
+    return _PAGE_TEMPLATE.format(
+        icon_bg="#1ed760",
+        icon="✓",
+        title="로그인 완료",
+        desc="OnTime Developer CLI 인증이 끝났습니다.<br>이 창을 닫고 터미널로 돌아가세요.",
+        button_style="background:#1ed760;color:#000;border:none;",
+    )
 
 
 def _bind_server(result: dict) -> HTTPServer:
@@ -105,13 +146,12 @@ def _bind_server(result: dict) -> HTTPServer:
                 self.send_response(404)
                 self.end_headers()
                 return
-            result.update({k: v[0] for k, v in parse_qs(parsed.query).items()})
+            params = {k: v[0] for k, v in parse_qs(parsed.query).items()}
+            result.update(params)
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.end_headers()
-            self.wfile.write(
-                "<h2>로그인 완료. 이 창을 닫고 터미널로 돌아가세요.</h2>".encode()
-            )
+            self.wfile.write(_render_callback_page(params.get("error")).encode())
 
         def log_message(self, *args):
             pass
