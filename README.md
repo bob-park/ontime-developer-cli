@@ -43,8 +43,7 @@ uv tool install .
   "client_id": "<KeyFlow client id>",
   "client_secret": "<KeyFlow client secret>",
   "scope": ["openid", "profile", "users:read:summary"],
-  "api_base_url": "http://localhost:8080/api",
-  "document_api_base_url": "http://localhost:8082/api"
+  "api_base_url": "https://auth.keyflow-dev.com/api"
 }
 ```
 
