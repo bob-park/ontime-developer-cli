@@ -130,9 +130,10 @@ def test_callback_success_page():
     resp, result = _request_callback("/callback?code=abc&state=s")
     assert result == {"code": "abc", "state": "s"}
     assert "로그인 완료" in resp.text
-    assert "#7132f5" in resp.text  # 보라 아이콘 + CTA (Kraken 라이트 카드)
+    assert "#7132f5" in resp.text  # 보라 아이콘 + 안내 문구 (Kraken 라이트 카드)
     assert "#f6f6f9" in resp.text  # 라이트 페이지 배경
-    assert "창 닫기" in resp.text
+    assert "이제 이 탭은 닫고 터미널로 돌아가면 돼요" in resp.text
+    assert "<button" not in resp.text  # window.close() 는 브라우저가 막으므로 버튼 없음
 
 
 def test_callback_error_page():

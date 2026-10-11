@@ -96,6 +96,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import httpx
 
 # OAuth 리다이렉트 페이지 (Kraken 스타일 라이트 카드, 외부 리소스 없이 자기완결)
+# 스크립트로 열지 않은 탭은 브라우저가 window.close() 를 막으므로 닫기 버튼 대신 안내 문구를 둔다.
 _PAGE_TEMPLATE = """<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -104,11 +105,11 @@ _PAGE_TEMPLATE = """<!DOCTYPE html>
 <title>OnTime Developer CLI</title>
 </head>
 <body style="margin:0;background:#f6f6f9;font-family:'IBM Plex Sans','Helvetica Neue',Helvetica,Arial,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;">
-  <div style="background:#fff;border-radius:16px;padding:32px;width:280px;display:flex;flex-direction:column;align-items:center;gap:12px;box-shadow:rgba(0,0,0,0.03) 0px 4px 24px;">
+  <div style="background:#fff;border-radius:16px;padding:32px;width:460px;max-width:calc(100% - 32px);box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:12px;box-shadow:rgba(0,0,0,0.03) 0px 4px 24px;">
     <div style="width:44px;height:44px;border-radius:50%;background:{icon_bg};color:{icon_color};display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;">{icon}</div>
     <div style="font-size:22px;font-weight:700;letter-spacing:-0.5px;color:#101114;">{title}</div>
     <div style="font-size:14px;color:#686b82;text-align:center;line-height:1.5;">{desc}</div>
-    <button onclick="window.close()" style="margin-top:8px;width:100%;{button_style}font-family:inherit;font-size:16px;font-weight:600;padding:13px 16px;border-radius:12px;cursor:pointer;">창 닫기</button>
+    <div style="margin-top:8px;width:100%;box-sizing:border-box;background:rgba(133,91,251,0.16);color:#7132f5;font-size:15px;font-weight:600;text-align:center;line-height:1.5;padding:13px 16px;border-radius:12px;">{notice}</div>
   </div>
 </body>
 </html>"""
@@ -122,19 +123,18 @@ def _render_callback_page(error: Optional[str]) -> str:
             icon="✕",
             title="로그인 실패",
             desc=(
-                "인증이 완료되지 않았습니다.<br>터미널에서 "
+                "로그인하지 못했어요.<br>오류 코드 "
                 f'<span style="color:#c2283b;font-weight:700;">{_html.escape(error)}</span>'
-                " 오류를 확인하고 다시 시도하세요."
             ),
-            button_style="background:#fff;color:#5741d8;border:1px solid #5741d8;",
+            notice="이 탭을 닫고 터미널에서 다시 로그인해 주세요",
         )
     return _PAGE_TEMPLATE.format(
         icon_bg="rgba(133,91,251,0.16)",
         icon_color="#7132f5",
         icon="✓",
         title="로그인 완료",
-        desc="OnTime Developer CLI 인증이 끝났습니다.<br>이 창을 닫고 터미널로 돌아가세요.",
-        button_style="background:#7132f5;color:#fff;border:none;",
+        desc="OnTime Developer CLI 에 로그인했어요.",
+        notice="이제 이 탭은 닫고 터미널로 돌아가면 돼요",
     )
 
 
