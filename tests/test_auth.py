@@ -130,8 +130,8 @@ def test_callback_success_page():
     resp, result = _request_callback("/callback?code=abc&state=s")
     assert result == {"code": "abc", "state": "s"}
     assert "로그인 완료" in resp.text
-    assert "#1ed760" in resp.text  # 그린 서클 + CTA (다크 카드 디자인)
-    assert "#181818" in resp.text  # 다크 카드 배경
+    assert "#7132f5" in resp.text  # 보라 아이콘 + CTA (Kraken 라이트 카드)
+    assert "#f6f6f9" in resp.text  # 라이트 페이지 배경
     assert "창 닫기" in resp.text
 
 
@@ -140,7 +140,7 @@ def test_callback_error_page():
     assert result["error"] == "access_denied"
     assert "로그인 실패" in resp.text
     assert "access_denied" in resp.text
-    assert "#f3727f" in resp.text  # negative red
+    assert "#c2283b" in resp.text  # 실패 red
 
 
 def test_callback_error_code_escaped():
