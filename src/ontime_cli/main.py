@@ -7,6 +7,7 @@ import typer
 
 from . import auth
 from .api import ApiError
+from .attendance import attendance_app
 from .commits import commits_app
 from .hooks import hooks_app
 from .vacations import vacations_app
@@ -16,6 +17,7 @@ app = typer.Typer(help="OnTime Developer CLI", no_args_is_help=True)
 app.add_typer(commits_app, name="commits")
 app.add_typer(hooks_app, name="hooks")
 app.add_typer(vacations_app, name="vacations")
+app.add_typer(attendance_app, name="attendance")
 
 
 @app.command()

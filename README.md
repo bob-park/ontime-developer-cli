@@ -125,6 +125,22 @@ ontime vacations request --start 2025-05-07 --type COMPENSATORY --reason "개인
 - `--end` 생략 시 시작일과 동일 (하루)
 - 신청자(`userUniqueId`)는 로그인한 사용자의 `sub`, 상태는 `WAITING` 으로 등록된다
 
+### 출근 / 퇴근
+
+```bash
+ontime attendance in                      # 출근 (기본 OFFICE)
+ontime attendance in --work-type HOME     # 재택 출근
+ontime attendance out                     # 퇴근 (오늘 출근 기록 기준)
+
+ontime attendance list                                    # 오늘 기록 조회
+ontime attendance list --start 2026-10-01 --end 2026-10-11
+```
+
+- API 서버는 `api_base_url` 을 따른다 (`/v2/attendance/records`)
+- `--work-type`: `OFFICE`(사무실, 기본값) | `OUTSIDE`(외근) | `HOME`(재택)
+- 위도/경도는 기록용으로 사무실 좌표로 고정되어 전송된다
+- 퇴근은 오늘(`workingDate`) 기록의 `id` 로 처리하며, 오늘 기록이 없으면 exit code 1
+
 ### git 훅 (push 시 커밋 자동 등록) — **Deprecated**
 
 > ⚠️ **이 기능은 deprecated 되었으며 향후 제거될 예정이다.** 실행 시 경고가 출력되고
