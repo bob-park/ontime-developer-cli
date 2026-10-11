@@ -6,6 +6,7 @@ KeyFlow Auth(OAuth 2.0) 로그인과 OnTime Developer REST API(커밋 등록/조
 
 - **인증**: KeyFlow Auth OAuth 2.0 — Authorization Code + PKCE(S256) flow
   - 로그인 시 브라우저가 열리고, `http://localhost:8765/callback` 으로 인증 코드를 수신
+  - 콜백 수신 후 성공/실패 결과 페이지 표시 (Kraken 스타일 라이트 카드 디자인)
   - access token 만료 시 refresh token 으로 자동 갱신 (갱신 실패 시에만 재로그인 필요)
   - 토큰 저장: `~/.config/keyflow-auth/tokens.json` (권한 `0600`)
 - **API**: OnTime Developer REST API (`/v1/developers/commits`)
@@ -63,6 +64,12 @@ ontime logout    # 토큰 삭제 (서버 revoke 포함)
 ```
 
 로그인은 한 번만 하면 된다. 이후 API 호출 시 토큰이 만료돼 있으면 자동 갱신된다.
+
+인증이 끝나면 브라우저에 결과 페이지가 표시된다. 디자인은 [docs/design/kraken-design.md](docs/design/kraken-design.md) 를 따른
+라이트 카드(연회색 배경 `#f6f6f9` + 흰 카드, Kraken Purple `#7132f5`, 12px 버튼 radius)이며, 외부 리소스 없이 자기완결 HTML 이다.
+
+- **로그인 완료**: 연보라 원 안의 보라색 ✓ 아이콘 + 보라색 "창 닫기" 버튼
+- **로그인 실패**: 연빨강 원 안의 ✕ 아이콘, 오류 코드를 빨간색(`#c2283b`)으로 강조 + 보라 테두리 "창 닫기" 버튼
 
 ### 커밋 등록
 
