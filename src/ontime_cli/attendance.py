@@ -59,7 +59,7 @@ def clock_in(
             "userUniqueId": auth.get_user_unique_id(),
             "workType": work_type.value,
             "latitude": LATITUDE,
-            "longtitude": LONGITUDE,  # 서버 스펙 필드명 그대로
+            "longitude": LONGITUDE,
         },
     ))
 
@@ -80,6 +80,6 @@ def clock_out() -> None:
             "userUniqueId": auth.get_user_unique_id(),
             "attendanceRecordId": todays[-1]["id"],
             "latitude": LATITUDE,
-            "longtitude": LONGITUDE,  # 서버 스펙 필드명 그대로
+            "longitude": LONGITUDE,
         },
     ))

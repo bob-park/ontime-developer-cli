@@ -49,7 +49,7 @@ def test_clock_in_default_office(monkeypatch):
             "userUniqueId": 42,
             "workType": "OFFICE",
             "latitude": 37.4827330,
-            "longtitude": 126.8961727,
+            "longitude": 126.8961727,
         }})
     ]
 
@@ -70,7 +70,7 @@ def test_clock_out_uses_todays_record(monkeypatch):
         "userUniqueId": 42,
         "attendanceRecordId": 13286,
         "latitude": 37.4827330,
-        "longtitude": 126.8961727,
+        "longitude": 126.8961727,
     }})
 
 
